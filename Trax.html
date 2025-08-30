@@ -1,447 +1,230 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Trax</title>
-    <style>
-        body { 
-            display: flex; 
-            flex-direction: column; 
-            justify-content: center; 
-            align-items: center; 
-            height: 100vh; 
-            margin: 0; 
-            background-color: #f0f0f0; 
-            font-family: Arial, sans-serif;
-            transition: background-color 0.3s;
-        }
-        body.dark-mode {
-            background-color: #333;
-        }
-        canvas { 
-            background-color: white; 
-            border: 1px solid black; 
-            border-radius: 10px; 
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
-            transition: background-color 0.3s;
-        }
-        body.dark-mode canvas {
-            background-color: #444;
-            border-color: #fff;
-        }
-        #difficultyMenu {
-            position: absolute;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-            text-align: center;
-        }
-        body.dark-mode #difficultyMenu {
-            background: rgba(0, 0, 0, 0.9);
-            color: #fff;
-        }
-        #difficultyMenu button {
-            margin: 10px;
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-            border: none;
-            border-radius: 5px;
-            background-color: #4CAF50;
-            color: white;
-            transition: background-color 0.3s;
-        }
-        #difficultyMenu button:hover {
-            background-color: #45a049;
-        }
-        #speedButton, #darkModeButton {
-            position: absolute;
-            padding: 10px 20px;
-            width: 120px;
-            font-size: 16px;
-            cursor: pointer;
-            border: none;
-            border-radius: 5px;
-            color: white;
-            transition: background-color 0.3s;
-            text-align: center;
-        }
-        #speedButton {
-            bottom: 80px;
-            right: 20px;
-            background-color: #008CBA;
-        }
-        #speedButton:hover {
-            background-color: #007399;
-        }
-        #darkModeButton {
-            bottom: 20px;
-            right: 20px;
-            background-color: #555;
-        }
-        #darkModeButton:hover {
-            background-color: #666;
-        }
-        #stats {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            font-size: 16px;
-            font-weight: bold;
-            color: black;
-            transition: color 0.3s;
-        }
-        body.dark-mode #stats {
-            color: white;
-        }
-    </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Manollos Spiele</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Bungee&display=swap" rel="stylesheet">
 </head>
-<body>
-    <div id="difficultyMenu">
-        <h2>Select Difficulty</h2>
-        <button onclick="startGame('easy')">Easy</button>
-        <button onclick="startGame('normal')">Normal</button>
-        <button onclick="startGame('hard')">Hard</button>
-        <button onclick="startGame('ledian')">Ledian Modus</button>
+<body class="min-h-screen flex flex-col items-center" id="body">
+
+    <!-- Farbpicker zur Änderung der Hintergrundfarbe -->
+    <div class="fixed top-4 right-4 z-20">
+        <div class="relative" id="colorPickerContainer">
+            <button id="colorPickerButton" class="bg-white text-gray-800 font-semibold py-2 px-4 rounded-lg shadow-lg flex items-center gap-2 hover:bg-gray-100 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4l2 2h6a2 2 0 012 2v10a4 4 0 01-4 4H7z"></path>
+                </svg>
+                Hintergrund anpassen
+            </button>
+            <div id="colorPickerDropdown" class="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl p-4 hidden">
+                <label for="bgColorPicker" class="block text-gray-800 font-semibold mb-2">Hintergrundfarbe:</label>
+                <input type="color" id="bgColorPicker" value="#1e293b" class="w-full h-10 rounded border-none cursor-pointer mb-4" />
+                <label for="patternSelect" class="block text-gray-800 font-semibold mb-2">Muster:</label>
+                <select id="patternSelect" class="w-full p-2 rounded border border-gray-300">
+                    <option value="solid">Einfarbig</option>
+                    <option value="gradient">Verlauf</option>
+                </select>
+            </div>
+        </div>
     </div>
-    <canvas id="game" width="360" height="600" style="display: none;"></canvas>
-    <button id="speedButton" style="display: none;" onclick="speedUp()">Speed Up</button>
-    <button id="darkModeButton" style="display: none;" onclick="toggleDarkMode()">Dark Mode</button>
-    <div id="stats" style="display: none;"></div>
-    <script>
-        const canvas = document.getElementById('game');
-        const ctx = canvas.getContext('2d');
-        const statsDiv = document.getElementById('stats');
-        const tileSize = 60;
-        const width = canvas.width;
-        const height = canvas.height;
-        const numCols = 6;
-        const numRows = 10;
-        const pitRadius = 25;
-        const ballRadius = 5;
-        const baseBallSpeed = 420;
-        const shootDelay = 0.2;
 
-        let difficultySettings = {
-            easy: { ballSpawnChance: 0.38, formula: (round) => round < 10 ? round + 3 : Math.round(2 + (round - 3) * 1.5) },
-            normal: { ballSpawnChance: 0.25, formula: (round) => round < 10 ? round + 3 : Math.round(2 + (round - 3) * 1.8) },
-            hard: { ballSpawnChance: 0.15, formula: (round) => round < 5 ? round + 5 : Math.round(5 + (round - 1) * 2.4) },
-            ledian: { ballSpawnChance: 0.35, formula: (round) => Math.round(10 + round * 3) }
-        };
+    <div class="container mx-auto px-4 pt-8 pb-12 w-full max-w-7xl">
+        <h1 id="headerText" class="text-5xl md:text-7xl font-bold text-center mb-16" style="font-family: 'Bungee', sans-serif;">Manollos Spiele Website</h1>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 max-w-5xl mx-auto">
+            <!-- Memory -->
+            <a href="https://manst1.github.io/Memory/memory.html" 
+               class="group bg-blue-600 hover:bg-blue-700 text-white font-semibold py-6 px-4 rounded-lg shadow-lg transform transition-all duration-300 hover:scale-105">
+                <div class="flex flex-col items-center">
+                    <svg class="w-12 h-12 mb-3 group-hover:animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zm0 10c-3.313 0-6-2.687-6-6s2.687-6 6-6 6 2.687 6 6-2.687 6-6 6z"></path>
+                    </svg>
+                    <span class="text-xl">Memory</span>
+                </div>
+            </a>
+            <!-- Cosmos -->
+            <a href="https://manst1.github.io/Cosmos/cosmos.html" 
+               class="group bg-purple-600 hover:bg-purple-700 text-white font-semibold py-6 px-4 rounded-lg shadow-lg transform transition-all duration-300 hover:scale-105">
+                <div class="flex flex-col items-center">
+                    <svg class="w-12 h-12 mb-3 group-hover:animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h18M3 21h18M12 3v18M3 12h18"></path>
+                    </svg>
+                    <span class="text-xl">Cosmos</span>
+                </div>
+            </a>
+            <!-- Snake -->
+            <a href="https://manst1.github.io/Snake/snake.html" 
+               class="group bg-green-600 hover:bg-green-700 text-white font-semibold py-6 px-4 rounded-lg shadow-lg transform transition-all duration-300 hover:scale-105">
+                <div class="flex flex-col items-center">
+                    <svg class="w-12 h-12 mb-3 group-hover:animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14c-1.5 0-3-2-3-4s1.5-4 3-4 3 2 3 4-1.5 4-3 4zm-7 6c-1.5 0-3-2-3-4s1.5-4 3-4 3 2 3 4-1.5 4-3 4zm-7-6c-1.5 0-3-2-3-4s1.5-4 3-4 3 2 3 4-1.5 4-3 4z"></path>
+                    </svg>
+                    <span class="text-xl">Snake</span>
+                </div>
+            </a>
+            <!-- Forge -->
+            <a href="https://manst1.github.io/Forge/forge.html" 
+               class="group bg-red-600 hover:bg-red-700 text-white font-semibold py-6 px-4 rounded-lg shadow-lg transform transition-all duration-300 hover:scale-105">
+                <div class="flex flex-col items-center">
+                    <svg class="w-12 h-12 mb-3 group-hover:animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3h2v6h6v2h-6v6h-2v-6H5V9h6V3z"></path>
+                    </svg>
+                    <span class="text-xl">Forge</span>
+                </div>
+            </a>
+			<!-- Hangman -->
+            <a href="https://manst1.github.io/Hangman/hangman.html" 
+               class="group bg-gray-700 hover:bg-gray-800 text-white font-semibold py-6 px-4 rounded-lg shadow-lg transform transition-all duration-300 hover:scale-105">
+                <div class="flex flex-col items-center">
+                    <svg class="w-12 h-12 mb-3 group-hover:animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 3h12M6 3v18M6 21h6M12 21v-6a2 2 0 012-2h4"></path>
+                    </svg>
+                    <span class="text-xl">Hangman</span>
+                </div>
+            </a>
+			<!-- Tint -->
+			<a href="https://manst1.github.io/Tint/tint.html" 
+			class="group bg-orange-600 hover:bg-orange-700 text-white font-semibold py-6 px-4 rounded-lg shadow-lg transform transition-all duration-300 hover:scale-105">
+				<div class="flex flex-col items-center">
+					<svg class="w-12 h-12 mb-3 group-hover:animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3c-2.5 3-5 5-5 9a5 5 0 0010 0c0-4-2.5-6-5-9z"/>
+					</svg>
+					<span class="text-xl">Tint</span>
+				</div>
+			</a>
+            
+            
+			<!-- Yield -->
+			<a href="https://manst1.github.io/Yield/yield.html" 
+			class="group bg-amber-800 hover:bg-amber-900 text-white font-semibold py-6 px-4 rounded-lg shadow-lg transform transition-all duration-300 hover:scale-105">
+				<div class="flex flex-col items-center">
+					<svg class="w-12 h-12 mb-3 group-hover:animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2a4 4 0 014 4v12a4 4 0 01-8 0V6a4 4 0 014-4zm0 4v12M8 10h8"/>
+					</svg>
+					<span class="text-xl">Yield</span>
+				</div>
+			</a>
+			<!-- Tic Tac Toe -->
+			<a href="https://manst1.github.io/TicTacToe/tictactoe.html" 
+			class="group bg-teal-600 hover:bg-teal-700 text-white font-semibold py-6 px-4 rounded-lg shadow-lg transform transition-all duration-300 hover:scale-105">
+				<div class="flex flex-col items-center">
+					<svg class="w-12 h-12 mb-3 group-hover:animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8h18M3 16h18M8 3v18M16 3v18"/>
+					</svg>
+					<span class="text-xl">Tic Tac Toe</span>
+				</div>
+			</a>
+			
+			<!-- Echo -->
+            <a href="https://manst1.github.io/Echo/echo.html" 
+               class="group bg-green-900 hover:bg-green-900 text-white font-semibold py-6 px-4 rounded-lg shadow-lg transform transition-all duration-300 hover:scale-105">
+                <div class="flex flex-col items-center">
+                    <svg class="w-12 h-12 mb-3 group-hover:animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12M6 12h12M10 8v8M14 8v8"/>
+                    </svg>
+                    <span class="text-xl">Echo</span>
+                </div>
+            </a>
+			
+			<!-- PathPulse -->
+            <a href="https://manst1.github.io/PathPulse/pathpulse.html" 
+               class="group bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-6 px-4 rounded-lg shadow-lg transform transition-all duration-300 hover:scale-105">
+                <div class="flex flex-col items-center">
+                    <svg class="w-12 h-12 mb-3 group-hover:animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12h3l3 8 4-16 3 8h4"></path>
+                    </svg>
+                    <span class="text-xl">PathPulse</span>
+                </div>
+            </a>
+			<!-- Dash -->
+			<a href="https://manst1.github.io/Dash/dash.html" 
+			class="group bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-6 px-4 rounded-lg shadow-lg transform transition-all duration-300 hover:scale-105">
+				<div class="flex flex-col items-center">
+					<svg class="w-12 h-12 mb-3 group-hover:animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"/>
+					</svg>
+					<span class="text-xl">Dash</span>
+				</div>
+			</a>
+		<!-- Color Catcher -->
+<a href="https://manst1.github.io/ColorCatcher/catcher.html" 
+   class="group bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-6 px-4 rounded-lg shadow-lg transform transition-all duration-300 hover:scale-105">
+    <div class="flex flex-col items-center">
+        <svg class="w-12 h-12 mb-3 group-hover:animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 3a2 2 0 012 2v14a2 2 0 01-2 2H9a2 2 0 01-2-2V5a2 2 0 012-2h6zm-3 14h.01M9 7h6m-6 4h6m-6 4h6"></path>
+        </svg>
+        <span class="text-xl">Color Catcher</span>
+    </div>
+</a>
+<!-- Trax -->
+<a href="https://manst1.github.io/Trax/Trax.html" 
+   class="group bg-pink-800 hover:bg-pink-900 text-white font-semibold py-6 px-4 rounded-lg shadow-lg transform transition-all duration-300 hover:scale-105">
+    <div class="flex flex-col items-center">
+        <svg class="w-12 h-12 mb-3 group-hover:animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3l9 15.6H3L12 3zm0 6l4 6.9H8L12 9z"/>
+        </svg>
+        <span class="text-xl">Trax</span>
+    </div>
+</a>
 
-        let currentDifficulty = null;
-        let state = 'difficulty';
-        let currentRound = 1;
-        let numBalls = 1;
-        let startX = width / 2;
-        let startY = height;
-        let aimDir = { x: 0, y: -1 };
-        let activeBalls = [];
-        let landedBalls = [];
-        let targets = [];
-        let lastTime = 0;
-        let ballCount = 0;
-        let nextShootTime = 0;
-        let targetNumBalls = 1;
-        let speedMultiplier = 1;
-        let isDarkMode = false;
+        </div>
+    </div>
 
-        class Target {
-            constructor(col, row, value = 0, isLittle = false) {
-                this.col = col;
-                this.row = row;
-                this.value = value;
-                this.isLittle = isLittle;
-            }
+<script>
+    const body = document.getElementById('body');
+    const headerText = document.getElementById('headerText');
+    const colorPicker = document.getElementById('bgColorPicker');
+    const patternSelect = document.getElementById('patternSelect');
+    const colorPickerButton = document.getElementById('colorPickerButton');
+    const colorPickerDropdown = document.getElementById('colorPickerDropdown');
 
-            get x() {
-                return (this.col + 0.5) * tileSize;
-            }
+    const defaultGradient = 'linear-gradient(to bottom right, #1e293b, #1e40af, #000000)';
+    body.style.background = defaultGradient;
 
-            get y() {
-                return height - (this.row - 0.5) * tileSize;
-            }
+    // Function to calculate luminance and set contrasting text color
+    function setContrastTextColor(bgColor) {
+        // Remove # from hex color
+        const hex = bgColor.replace('#', '');
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+        // Calculate luminance
+        const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+        // Use white text for dark backgrounds, black for light
+        headerText.style.color = luminance < 0.5 ? '#ffffff' : '#000000';
+    }
 
-            get radius() {
-                return this.isLittle ? 10 : pitRadius;
-            }
-
-            get color() {
-                if (this.isLittle) return '#00BFFF';
-                if (this.value === 1) return '#FFFFE0';
-                if (this.value === 2) return '#FFFF00';
-                if (this.value === 3) return '#FFD700';
-                if (this.value === 4) return '#FFA500';
-                if (this.value === 5) return '#FF8C00';
-                if (this.value === 6) return '#FF4500';
-                if (this.value === 7) return '#FF0000';
-                if (this.value === 8) return '#C71585';
-                if (this.value === 9) return '#800080';
-                if (this.value === 10) return '#4B0082';
-                if (this.value === 11) return '#0000FF';
-                if (this.value === 12) return '#00BFFF';
-                if (this.value === 13) return '#008000';
-                if (this.value === 14) return '#006400';
-                return '#004D00';
-            }
-
-            draw() {
-                const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);
-                grad.addColorStop(0, 'rgba(255,255,255,0.5)');
-                grad.addColorStop(1, this.color);
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
-                ctx.fillStyle = grad;
-                ctx.fill();
-                ctx.shadowColor = 'rgba(0,0,0,0.2)';
-                ctx.shadowBlur = 5;
-                ctx.shadowOffsetX = 2;
-                ctx.shadowOffsetY = 2;
-                if (!this.isLittle) {
-                    ctx.fillStyle = isDarkMode ? 'white' : 'black';
-                    ctx.font = 'bold 20px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(this.value.toString(), this.x, this.y);
-                }
-                ctx.shadowColor = 'transparent';
-            }
-
-            hit() {
-                if (this.isLittle) {
-                    return true;
-                } else {
-                    this.value--;
-                    return this.value <= 0;
-                }
-            }
+    function updateBackground() {
+        const color = colorPicker.value;
+        const pattern = patternSelect.value;
+        if (pattern === 'solid') {
+            body.style.background = color;
+            setContrastTextColor(color);
+        } else {
+            body.style.background = `linear-gradient(to bottom right, ${color}, #1e40af, #000000)`;
+            setContrastTextColor(color); // Use primary color for contrast calculation
         }
+    }
 
-        class Ball {
-            constructor(x, y, vx, vy) {
-                this.pos = { x, y };
-                this.vel = { x: vx, y: vy };
-            }
+    // Toggle dropdown visibility on click
+    colorPickerButton.addEventListener('click', () => {
+        colorPickerDropdown.classList.toggle('hidden');
+    });
 
-            update(dt) {
-                this.pos.x += this.vel.x * dt * speedMultiplier;
-                this.pos.y += this.vel.y * dt * speedMultiplier;
-            }
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!colorPickerContainer.contains(e.target)) {
+            colorPickerDropdown.classList.add('hidden');
         }
+    });
 
-        function getRandomPartitions(n, k) {
-            const arr = Array(k).fill(1);
-            for (let i = 0; i < n - k; i++) {
-                arr[Math.floor(Math.random() * k)]++;
-            }
-            return arr;
-        }
+    colorPicker.addEventListener('input', updateBackground);
+    patternSelect.addEventListener('change', updateBackground);
 
-        function addNewRow() {
-            let totalValue = difficultySettings[currentDifficulty].formula(currentRound);
-            let cols = Array.from({ length: numCols }, (_, i) => i);
-            let selectedCols = [];
-            for (let i = 0; i < 3; i++) {
-                const idx = Math.floor(Math.random() * cols.length);
-                selectedCols.push(cols.splice(idx, 1)[0]);
-            }
-            const values = getRandomPartitions(totalValue, 3);
-            for (let i = 0; i < 3; i++) {
-                targets.push(new Target(selectedCols[i], numRows, values[i]));
-            }
-            if (Math.random() < difficultySettings[currentDifficulty].ballSpawnChance && cols.length > 0) {
-                const idx = Math.floor(Math.random() * cols.length);
-                const col = cols[idx];
-                targets.push(new Target(col, numRows, 0, true));
-            }
-        }
+    // Initialize contrast text color
+    setContrastTextColor('#1e293b');
+</script>
 
-        function processEndRound() {
-            if (landedBalls.length > 0) {
-                startX = landedBalls[0].x;
-            }
-            landedBalls = [];
-            let gameOver = false;
-            for (const t of targets) {
-                if (t.row === 1) {
-                    gameOver = true;
-                    break;
-                }
-            }
-            if (gameOver) {
-                state = 'over';
-                return;
-            }
-            for (const t of targets) {
-                t.row--;
-            }
-            currentRound++;
-            speedMultiplier = 1;
-            addNewRow();
-            state = 'waiting';
-            ballCount = 0;
-            nextShootTime = 0;
-        }
-
-        function update(dt, time) {
-            if (state === 'shooting') {
-                if (ballCount < targetNumBalls && time >= nextShootTime) {
-                    let vx = aimDir.x * baseBallSpeed;
-                    let vy = aimDir.y * baseBallSpeed;
-                    if (vy > 0) vy = -vy; // Force upward
-                    activeBalls.push(new Ball(startX, height - ballRadius * 2, vx, vy));
-                    ballCount++;
-                    nextShootTime = time + shootDelay * 1000;
-                }
-
-                for (let i = activeBalls.length - 1; i >= 0; i--) {
-                    const ball = activeBalls[i];
-                    ball.update(dt);
-
-                    if (ball.pos.x <= ballRadius) {
-                        ball.pos.x = ballRadius;
-                        ball.vel.x = -ball.vel.x;
-                    } else if (ball.pos.x >= width - ballRadius) {
-                        ball.pos.x = width - ballRadius;
-                        ball.vel.x = -ball.vel.x;
-                    }
-
-                    if (ball.pos.y <= ballRadius) {
-                        ball.pos.y = ballRadius;
-                        ball.vel.y = -ball.vel.y;
-                    }
-
-                    if (ball.pos.y >= height - ballRadius) {
-                        landedBalls.push({ x: ball.pos.x });
-                        activeBalls.splice(i, 1);
-                        continue;
-                    }
-
-                    for (let j = targets.length - 1; j >= 0; j--) {
-                        const t = targets[j];
-                        const dx = ball.pos.x - t.x;
-                        const dy = ball.pos.y - t.y;
-                        const d = Math.sqrt(dx ** 2 + dy ** 2);
-                        if (d < ballRadius + t.radius) {
-                            if (!t.isLittle) {
-                                const nx = dx / d;
-                                const ny = dy / d;
-                                const dot = ball.vel.x * nx + ball.vel.y * ny;
-                                ball.vel.x -= 2 * dot * nx;
-                                ball.vel.y -= 2 * dot * ny;
-                                const ol = ballRadius + t.radius - d;
-                                ball.pos.x += nx * ol;
-                                ball.pos.y += ny * ol;
-                            }
-                            const remove = t.hit();
-                            if (t.isLittle) {
-                                numBalls++;
-                            }
-                            if (remove) {
-                                targets.splice(j, 1);
-                            }
-                        }
-                    }
-                }
-
-                if (ballCount === targetNumBalls && activeBalls.length === 0) {
-                    processEndRound();
-                }
-            }
-        }
-
-        function draw() {
-            ctx.clearRect(0, 0, width, height);
-            for (const t of targets) {
-                t.draw();
-            }
-            for (const b of activeBalls) {
-                ctx.beginPath();
-                ctx.arc(b.pos.x, b.pos.y, ballRadius, 0, 2 * Math.PI);
-                ctx.fillStyle = isDarkMode ? 'white' : 'black';
-                ctx.fill();
-            }
-            if (state === 'waiting') {
-                const aimLength = 100;
-                const endX = startX + aimDir.x * aimLength;
-                const endY = height + aimDir.y * aimLength;
-                ctx.beginPath();
-                ctx.moveTo(startX, height);
-                ctx.lineTo(endX, endY);
-                ctx.strokeStyle = 'red';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-            }
-            ctx.beginPath();
-            ctx.arc(startX, height, 10, 0, 2 * Math.PI);
-            ctx.fillStyle = 'gray';
-            ctx.fill();
-            if (state === 'over') {
-                ctx.font = 'bold 40px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillStyle = isDarkMode ? 'white' : 'black';
-                ctx.fillText('Game Over', width / 2, height / 2);
-            }
-            statsDiv.textContent = `Round: ${currentRound}\nBalls: ${numBalls}`;
-        }
-
-        document.addEventListener('mousemove', (e) => {
-            if (state !== 'waiting') return;
-            const rect = canvas.getBoundingClientRect();
-            const mx = e.clientX - rect.left;
-            const my = e.clientY - rect.top;
-            const dx = mx - startX;
-            const dy = my - height;
-            const len = Math.sqrt(dx * dx + dy * dy);
-            if (len > 0) {
-                aimDir.x = dx / len;
-                aimDir.y = dy / len;
-            }
-        });
-
-        canvas.addEventListener('click', () => {
-            if (state !== 'waiting') return;
-            targetNumBalls = numBalls;
-            state = 'shooting';
-            ballCount = 0;
-            nextShootTime = performance.now();
-        });
-
-        function speedUp() {
-            if (state === 'shooting') {
-                speedMultiplier = 4;
-            }
-        }
-
-        function toggleDarkMode() {
-            isDarkMode = !isDarkMode;
-            document.body.classList.toggle('dark-mode');
-            document.getElementById('darkModeButton').textContent = isDarkMode ? 'Light Mode' : 'Dark Mode';
-        }
-
-        window.startGame = function(difficulty) {
-            currentDifficulty = difficulty;
-            document.getElementById('difficultyMenu').style.display = 'none';
-            canvas.style.display = 'block';
-            document.getElementById('speedButton').style.display = 'block';
-            document.getElementById('darkModeButton').style.display = 'block';
-            document.getElementById('stats').style.display = 'block';
-            state = 'waiting';
-            addNewRow();
-            requestAnimationFrame(animate);
-        };
-
-        function animate(time) {
-            if (state === 'difficulty') return;
-            if (!lastTime) lastTime = time;
-            const dt = (time - lastTime) / 1000;
-            lastTime = time;
-            update(dt, time);
-            draw();
-            requestAnimationFrame(animate);
-        }
-    </script>
 </body>
-
 </html>
