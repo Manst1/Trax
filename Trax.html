@@ -121,7 +121,7 @@
         const pitRadius = 25;
         const ballRadius = 5;
         const baseBallSpeed = 420;
-        const shootDelay = 0.2;
+        const baseShootDelay = 0.2;
 
         let difficultySettings = {
             easy: { ballSpawnChance: 0.38, formula: (round) => round < 10 ? round + 3 : Math.round(2 + (round - 3) * 1.5) },
@@ -145,6 +145,7 @@
         let nextShootTime = 0;
         let targetNumBalls = 1;
         let speedMultiplier = 1;
+        let shootDelayMultiplier = 1;
         let isDarkMode = false;
 
         class Target {
@@ -278,6 +279,7 @@
             }
             currentRound++;
             speedMultiplier = 1;
+            shootDelayMultiplier = 1;
             addNewRow();
             state = 'waiting';
             ballCount = 0;
@@ -292,7 +294,7 @@
                     if (vy > 0) vy = -vy; // Force upward
                     activeBalls.push(new Ball(startX, height - ballRadius * 2, vx, vy));
                     ballCount++;
-                    nextShootTime = time + shootDelay * 1000;
+                    nextShootTime = time + (baseShootDelay / shootDelayMultiplier) * 1000;
                 }
 
                 for (let i = activeBalls.length - 1; i >= 0; i--) {
@@ -411,6 +413,7 @@
         function speedUp() {
             if (state === 'shooting') {
                 speedMultiplier = 4;
+                shootDelayMultiplier = 4;
             }
         }
 
@@ -420,7 +423,7 @@
             document.getElementById('darkModeButton').textContent = isDarkMode ? 'Light Mode' : 'Dark Mode';
         }
 
-        window.startGame = function(difficulty) {
+        function startGame(difficulty) {
             currentDifficulty = difficulty;
             document.getElementById('difficultyMenu').style.display = 'none';
             canvas.style.display = 'block';
@@ -430,7 +433,9 @@
             state = 'waiting';
             addNewRow();
             requestAnimationFrame(animate);
-        };
+        }
+
+        window.startGame = startGame;
 
         function animate(time) {
             if (state === 'difficulty') return;
